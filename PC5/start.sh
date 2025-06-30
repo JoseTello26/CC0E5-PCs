@@ -3,7 +3,7 @@
 echo "Starting Cluster..."
 
 
-echo "📦 Building and starting services..."
+echo "Building and starting services..."
 
 # Build and start all services
 docker compose up -d --build

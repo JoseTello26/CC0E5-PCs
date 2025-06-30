@@ -2,14 +2,14 @@
 
 Este proyecto implementa un sistema de detección de anomalías en eventos de transacción usando Apache Kafka y Apache Flink, desplegado con Docker.
 
-## 🏗️ Arquitectura
+## Arquitectura
 
 - **Producer**: Genera eventos de transacción simulados cada 500ms
-- **Flink Job**: Procesa eventos en tiempo real y detecta anomalías
+- **Flink-JobManager/Taskmanager**: Procesa eventos en tiempo real y detecta anomalías
 - **Kafka**: Broker de mensajes para comunicación entre componentes
 - **Zookeeper**: Coordinador para Kafka
 
-## 📊 Formato del Evento
+## Formato del Evento
 
 Los eventos de transacción siguen este formato JSON:
 
@@ -32,7 +32,7 @@ Los eventos de transacción siguen este formato JSON:
 - `longitude`: Longitud de la ubicación
 - `ipAddress`: Dirección IP de la transacción
 
-## 🔍 Reglas de Detección de Anomalías
+## Reglas de Detección de Anomalías
 
 El sistema detecta las siguientes anomalías:
 
@@ -55,11 +55,11 @@ El sistema detecta las siguientes anomalías:
 - **Condición**: IP que comienza con `10.` o `192.168.`
 - **Descripción**: Direcciones IP de redes privadas (posible fraude)
 
-## 🚀 Inicio Rápido
+## Inicio Rápido
 
 1. **Clonar y navegar al proyecto:**
    ```bash
-   cd anomaly-flink-project
+   cd PC5
    ```
 
 2. **Levantar todos los servicios:**
@@ -81,130 +81,27 @@ El sistema detecta las siguientes anomalías:
    docker-compose logs -f
    ```
 
-## 📁 Estructura del Proyecto
+## Estructura del Proyecto
 
 ```
-anomaly-flink-project/
-├── producer/                 # Generador de eventos
-│   ├── src/main/java/
-│   │   └── producer/
-│   │       └── DataGenerator.java
+├── consumer.py
+├── docker-compose.yml
+├── example-event.json
+├── flink-job
+│   ├── dependency-reduced-pom.xml
+│   ├── Dockerfile
 │   ├── pom.xml
-│   └── Dockerfile
-├── flink-job/               # Job de Flink
-│   ├── src/main/java/flink/
-│   │   ├── FlinkJobMain.java
-│   │   └── TransactionEvent.java
+│   ├── src/main/java/flink
+│                  ├── AnomalyAlert.java
+│                  ├── FlinkJobMain.java
+│                  └── TransactionEvent.java
+├── producer
+│   ├── Dockerfile
 │   ├── pom.xml
-│   └── Dockerfile
-├── docker-compose.yml       # Orquestación de contenedores
-├── start.sh                 # Script de inicio
-├── restart-service.sh       # Script para reiniciar servicios
-├── example-event.json       # Ejemplo de evento
-└── README.md
+│   ├── src/main/java/producer
+│                  ├── DataGenerator.java
+│                  └── TransactionEvent.java
+│   
+├── README.md
+└── start.sh
 ```
-
-## 🛠️ Desarrollo
-
-Para modificar el código:
-
-1. Edita los archivos `.java` en tu editor
-2. Reinicia el contenedor específico:
-   ```bash
-   # Para producer
-   ./restart-service.sh producer
-   
-   # Para flink-job
-   ./restart-service.sh flink-job
-   
-   # Para ambos
-   ./restart-service.sh all
-   ```
-
-### Ejemplo de Modificación
-
-Si quieres cambiar la frecuencia de generación de eventos en `DataGenerator.java`:
-
-```java
-// Cambiar de 500ms a 1000ms
-TimeUnit.MILLISECONDS.sleep(1000);
-```
-
-Luego reinicia el producer:
-```bash
-./restart-service.sh producer
-```
-
-## 📊 Monitoreo
-
-- **Flink Web UI**: http://localhost:8081
-  - Ver jobs en ejecución
-  - Monitorear throughput
-  - Revisar logs de tareas
-- **Logs de Kafka**: `docker-compose logs kafka`
-- **Logs de Flink**: `docker-compose logs flink-jobmanager`
-- **Logs del Producer**: `docker-compose logs producer`
-- **Logs del Job**: `docker-compose logs flink-job`
-
-## 🔧 Configuración
-
-### Variables de Entorno
-
-- `KAFKA_BOOTSTRAP_SERVERS`: Servidores de Kafka (default: kafka:9092)
-- `FLINK_JOBMANAGER_HOST`: Host del JobManager de Flink
-- `FLINK_JOBMANAGER_PORT`: Puerto del JobManager de Flink
-
-### Puertos Expuestos
-
-- **8081**: Flink Web UI
-- **9092**: Kafka
-- **2181**: Zookeeper
-
-## 🛑 Parar el Sistema
-
-```bash
-docker-compose down
-```
-
-Para limpiar completamente (incluyendo volúmenes):
-```bash
-docker-compose down -v
-```
-
-## 🐛 Troubleshooting
-
-### Problemas Comunes
-
-1. **Servicios no inician**:
-   ```bash
-   docker-compose logs
-   ```
-
-2. **Producer no conecta a Kafka**:
-   - Verificar que Kafka esté corriendo: `docker-compose ps kafka`
-   - Revisar logs: `docker-compose logs kafka`
-
-3. **Flink job no procesa eventos**:
-   - Verificar Flink Web UI: http://localhost:8081
-   - Revisar logs: `docker-compose logs flink-job`
-
-4. **Cambios de código no se reflejan**:
-   - Reiniciar el servicio específico: `./restart-service.sh [service]`
-   - Verificar que los volúmenes estén montados correctamente
-
-## 📈 Escalabilidad
-
-El sistema está diseñado para escalar:
-
-- **Kafka**: Agregar más brokers
-- **Flink**: Aumentar TaskManagers
-- **Producer**: Múltiples instancias
-- **Análisis**: Agregar más jobs de Flink
-
-## 🤝 Contribución
-
-1. Fork el proyecto
-2. Crea una rama para tu feature
-3. Commit tus cambios
-4. Push a la rama
-5. Abre un Pull Request 
