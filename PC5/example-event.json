@@ -1,0 +1,8 @@
+{
+  "userId": "user123",
+  "amount": 500.00,
+  "timestamp": "2024-01-29T10:00:00",
+  "latitude": 40.7128,
+  "longitude": -74.0060,
+  "ipAddress": "192.168.1.1"
+} 
