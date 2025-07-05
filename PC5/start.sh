@@ -9,7 +9,7 @@ echo "Building and starting services..."
 docker compose up -d --build
 
 echo "Waiting for services to start..."
-sleep 30
+sleep 15
 
 echo "Checking service status..."
 
@@ -26,3 +26,11 @@ else
     echo "Some services failed to start. Check logs with: docker compose logs"
     exit 1
 fi 
+
+echo "Starting dashboard..."
+streamlit run dashboard/app.py
+
+echo "Dashboard URL:"
+echo "   - http://localhost:8501"
+echo ""
+exit 0

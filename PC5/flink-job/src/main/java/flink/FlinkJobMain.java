@@ -16,6 +16,9 @@ import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.FilterFunction;
+import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema;
+import org.apache.flink.connector.kafka.sink.KafkaSink;
+import org.apache.flink.api.common.serialization.SerializationSchema;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -24,9 +27,10 @@ import java.util.List;
 
 public class FlinkJobMain {
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {        
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
+        //SOURCE DE TRANSACCIONES
         KafkaSource<String> source = KafkaSource.<String>builder()
                 .setBootstrapServers("kafka:9092")
                 .setTopics("transactions")
@@ -40,6 +44,17 @@ public class FlinkJobMain {
                 WatermarkStrategy.noWatermarks(),
                 "Kafka Source"
         );
+
+        //SINK DE ALERTAS
+        KafkaSink<AnomalyAlert> alertSink = KafkaSink.<AnomalyAlert>builder()
+            .setBootstrapServers("kafka:9092")
+            .setRecordSerializer(KafkaRecordSerializationSchema.builder()
+                .setTopic("alerts")
+                .setValueSerializationSchema(new AnomalyAlertSerializationSchema())
+                .build())
+            .build();
+
+        
 
         // Print raw messages
         rawStream
@@ -90,13 +105,35 @@ public class FlinkJobMain {
             .process(new ProcessFunction<AnomalyAlert, AnomalyAlert>() {
                 @Override
                 public void processElement(AnomalyAlert alert, Context ctx, Collector<AnomalyAlert> out) {
-                    System.out.println("🚨 ANOMALY DETECTED: " + alert.toString());
+                    System.out.println("🚨 ANOMALIA DETECTADA: " + alert.toString());
                     out.collect(alert);
                 }
             })
             .print("Anomaly Alerts");
 
+        anomalyStream.sinkTo(alertSink).name("Kafka Alert Sink");
+
         env.execute("Transaction Anomaly Detection");
+    }
+
+    // SerializationSchema implementation for AnomalyAlert
+    public static class AnomalyAlertSerializationSchema implements SerializationSchema<AnomalyAlert> {
+        private transient ObjectMapper objectMapper;
+
+        @Override
+        public byte[] serialize(AnomalyAlert alert) {
+            if (objectMapper == null) {
+                objectMapper = new ObjectMapper();
+                objectMapper.registerModule(new JavaTimeModule());
+            }
+
+            try {
+                String json = objectMapper.writeValueAsString(alert);
+                return json.getBytes("UTF-8");
+            } catch (Exception e) {
+                throw new RuntimeException("Error serializing alert: " + e.getMessage(), e);
+            }
+        }
     }
 
     // Mapper to convert JSON string to TransactionEvent
@@ -111,18 +148,16 @@ public class FlinkJobMain {
             }
 
             try {
-                System.out.println("🔄 Parsing JSON: " + json);
                 TransactionEvent event = objectMapper.readValue(json, TransactionEvent.class);
-                System.out.println("✅ Successfully parsed: " + event.toString());
                 return event;
             } catch (Exception e) {
-                System.out.println("❌ Error parsing JSON: " + json + " - " + e.getMessage());
+                System.out.println("Error parsing JSON: " + json + " - " + e.getMessage());
                 return null;
             }
         }
     }
 
-    // Window function for anomaly detection
+    //Clase para detectar anomalias en una ventana de 5 segundos
     public static class AnomalyDetectionFunction extends ProcessWindowFunction<TransactionEvent, AnomalyAlert, String, TimeWindow> {
         
         @Override
@@ -138,19 +173,19 @@ public class FlinkJobMain {
                 return;
             }
             
-            System.out.println("🔍 Processing window for user " + userId + " with " + eventList.size() + " events");
+            System.out.println("Processing window for user " + userId + " with " + eventList.size() + " events");
             
             // Check for anomalies
             List<String> anomalies = new ArrayList<>();
             
-            // 1. Check for high frequency (more than 5 events in window)
+            // Determina si un usuario tiene mas de 5 transacciones en la ventana
             if (eventList.size() > 5) {
                 String anomaly = "HIGH_FREQUENCY: " + eventList.size() + " events in 5s window";
                 anomalies.add(anomaly);
                 System.out.println("⚠️ " + anomaly);
             }
             
-            // 2. Check individual events for anomalies
+            // Verifica que cada EVENTO cumpla con los umbrales
             for (TransactionEvent event : eventList) {
                 if (event.isHighAmount()) {
                     String anomaly = "HIGH_AMOUNT: $" + event.getAmount() + " for user " + userId;
@@ -182,10 +217,10 @@ public class FlinkJobMain {
                     context.window().getStart(),
                     context.window().getEnd()
                 );
-                System.out.println("🚨 Creating anomaly alert: " + alert.toString());
+                System.out.println("🚨 ANOMALIA DETECTADA: " + alert.toString());
                 collector.collect(alert);
             } else {
-                System.out.println("✅ No anomalies detected for user " + userId + " in this window");
+                System.out.println("✅ Sin anomalias" + userId + " in this window");
             }
         }
     }

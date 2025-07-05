@@ -25,6 +25,7 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1 
 
   # Flink JobManager
   flink-jobmanager:
@@ -32,13 +33,16 @@ services:
     container_name: flink-jobmanager
     ports:
       - "8081:8081"
-    command: jobmanager
+    command: /bin/bash -c "start-cluster.sh && flink run /app/target/flink-job-1.0.0.jar"
     environment:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: flink-jobmanager
     volumes:
       - ./flink-job:/app
+    restart: unless-stopped
+    depends_on:
+      - kafka
 
   # Flink TaskManager
   flink-taskmanager:
@@ -70,6 +74,19 @@ services:
       - /app/target
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    restart: unless-stopped
+
+  consumer-api:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: consumer-api
+    volumes:
+      - ./dashboard:/app
+    depends_on:
+      - kafka
+    ports:
+      - "5000:5000"
     restart: unless-stopped
 
 volumes:
